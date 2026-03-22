@@ -1,0 +1,23 @@
+# Poly_Weather — Dependencies
+# Install: pip install -r requirements.txt
+
+# Core
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Data & Analysis
+pandas>=2.1.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+
+# Polymarket CLOB client (for live trading — optional for paper mode)
+# py-clob-client>=0.18.0
+
+# WebSocket (for whale copy-trade listener)
+websockets>=12.0
+
+# Scheduling
+schedule>=1.2.0
+
+# Logging
+colorlog>=6.8.0
