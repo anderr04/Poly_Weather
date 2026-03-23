@@ -176,12 +176,13 @@ COPY_BATCH_WINDOW_S: float = float(os.getenv("COPY_BATCH_WINDOW_S", "120.0"))
 
 # Maximum % of capital per single trade (HARD LIMIT)
 MAX_CAPITAL_PER_TRADE_PCT: float = float(
-    os.getenv("MAX_CAPITAL_PER_TRADE_PCT", "0.05")  # 3%
+    os.getenv("MAX_CAPITAL_PER_TRADE_PCT", "0.03")  # 3% for safety in paper trading
 )
 
 # Minimum market liquidity (USD) to consider trading
+# Adjusted for early weather markets which rarely exceed $3k in first 24h
 MIN_LIQUIDITY_USD: float = float(
-    os.getenv("MIN_LIQUIDITY_USD", "8000")  # $30K
+    os.getenv("MIN_LIQUIDITY_USD", "2000")  # $2K
 )
 
 # Minimum hours until resolution to trade
