@@ -64,6 +64,12 @@ TRADES_COLUMNS = [
     "signal_source", "city", "exit_reason",
 ]
 
+OPEN_TRADES_COLUMNS = [
+    "trade_id", "market_question", "outcome", "side",
+    "entry_price", "size_usd", "shares", "entry_time",
+    "signal_source", "city", "resolution_date",
+]
+
 
 class PaperTrader:
     """
@@ -161,6 +167,7 @@ class PaperTrader:
                 size_usd, shares, self.capital,
             )
 
+            self._save_open_trades()
             return trade_id
 
     def close_trade(
@@ -218,6 +225,7 @@ class PaperTrader:
                 pnl, pnl_pct * 100, reason, self.capital,
             )
 
+            self._save_open_trades()
             return closed
 
     def _write_trade_csv(self, trade: ClosedTrade, city: str) -> None:
@@ -245,6 +253,33 @@ class PaperTrader:
                 })
         except Exception as e:
             logger.warning("Failed to write trades CSV: %s", e)
+
+    def _save_open_trades(self) -> None:
+        """Overwrite open_trades.csv with current active positions."""
+        try:
+            csv_path = config.DATA_DIR / "open_trades.csv"
+            with open(csv_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=OPEN_TRADES_COLUMNS)
+                writer.writeheader()
+                for pos in self.positions.values():
+                    writer.writerow({
+                        "trade_id": pos.trade_id,
+                        "market_question": pos.market_question[:200],
+                        "outcome": pos.outcome,
+                        "side": pos.side,
+                        "entry_price": f"{pos.entry_price:.6f}",
+                        "size_usd": f"{pos.size_usd:.2f}",
+                        "shares": f"{pos.shares:.4f}",
+                        "entry_time": pos.entry_time.isoformat(),
+                        "signal_source": pos.signal_source,
+                        "city": pos.city,
+                        "resolution_date": (
+                            pos.resolution_date.isoformat()
+                            if pos.resolution_date else ""
+                        ),
+                    })
+        except Exception as e:
+            logger.warning("Failed to write open trades CSV: %s", e)
 
     # ── Status ───────────────────────────────────────────────────
 
