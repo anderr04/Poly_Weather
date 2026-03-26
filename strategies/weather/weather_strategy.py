@@ -86,6 +86,9 @@ class WeatherStrategy:
                      self.last_scan_time.strftime("%H:%M:%S UTC"))
         logger.info("=" * 60)
 
+        # Clear Open-Meteo cache so we get fresh data this cycle
+        self.meteo.clear_cache()
+
         markets = self.scanner.scan()
         self.total_scanned += len(markets)
 

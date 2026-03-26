@@ -33,6 +33,13 @@ class OpenMeteoClient:
         self.session.headers.update({
             "User-Agent": "Poly_Weather/1.0",
         })
+        self._cache_ensemble = {}
+        self._cache_historical = {}
+
+    def clear_cache(self):
+        """Clear cache at the start of a new polling cycle."""
+        self._cache_ensemble.clear()
+        self._cache_historical.clear()
 
     # ── Ensemble Forecast ────────────────────────────────────────
 
@@ -55,6 +62,10 @@ class OpenMeteoClient:
         if not coords:
             logger.warning("City '%s' not in config", city)
             return None
+
+        cache_key = f"{city}_{days}"
+        if cache_key in self._cache_ensemble:
+            return self._cache_ensemble[cache_key]
 
         lat, lon, tz = coords
 
@@ -87,7 +98,7 @@ class OpenMeteoClient:
             data = r.json()
             daily = data.get("daily", {})
 
-            return {
+            result = {
                 "source": "open-meteo-ensemble",
                 "model": "gfs_seamless",
                 "city": city,
@@ -100,6 +111,8 @@ class OpenMeteoClient:
                 "precipitation_mm": daily.get("precipitation_sum", []),
                 "wind_max_kmh": daily.get("wind_speed_10m_max", []),
             }
+            self._cache_ensemble[cache_key] = result
+            return result
 
         except Exception as e:
             logger.error("Ensemble forecast error for %s: %s", city, e)
@@ -130,7 +143,7 @@ class OpenMeteoClient:
 
             data = r.json()
             daily = data.get("daily", {})
-            return {
+            result = {
                 "source": "open-meteo-standard",
                 "model": "best_match",
                 "dates": daily.get("time", []),
@@ -140,6 +153,8 @@ class OpenMeteoClient:
                 "wind_max_kmh": daily.get("wind_speed_10m_max", []),
                 "weather_codes": daily.get("weathercode", []),
             }
+            self._cache_ensemble[f"{lat}_{lon}_{days}"] = result
+            return result
         except Exception as e:
             logger.error("Standard forecast error: %s", e)
             return None
@@ -167,6 +182,11 @@ class OpenMeteoClient:
         coords = config.ALL_WEATHER_CITIES.get(city)
         if not coords:
             return None
+
+        target_str = target_date.strftime('%Y-%m-%d')
+        cache_key = f"{city}_{target_str}_{years_back}"
+        if cache_key in self._cache_historical:
+            return self._cache_historical[cache_key]
 
         lat, lon, tz = coords
 
@@ -239,7 +259,7 @@ class OpenMeteoClient:
         if not all_temp_max:
             return None
 
-        return {
+        result = {
             "source": "open-meteo-archive",
             "city": city,
             "target_date": target_date.strftime("%Y-%m-%d"),
@@ -267,6 +287,8 @@ class OpenMeteoClient:
                 "total_observations": len(all_temp_max),
             },
         }
+        self._cache_historical[cache_key] = result
+        return result
 
     # ── Probability Calculation ──────────────────────────────────
 
