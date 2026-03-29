@@ -185,6 +185,10 @@ MIN_LIQUIDITY_USD: float = float(
     os.getenv("MIN_LIQUIDITY_USD", "2000")  # $2K
 )
 
+# Take Profit and Stop Loss (Paper Trading)
+TAKE_PROFIT_PCT: float = float(os.getenv("TAKE_PROFIT_PCT", "0.50"))  # +50%
+STOP_LOSS_PCT: float = float(os.getenv("STOP_LOSS_PCT", "-0.50"))     # -50%
+
 # Minimum hours until resolution to trade
 MIN_RESOLUTION_HOURS: int = int(
     os.getenv("MIN_RESOLUTION_HOURS", "24")

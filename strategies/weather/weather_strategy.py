@@ -89,6 +89,9 @@ class WeatherStrategy:
         # Clear Open-Meteo cache so we get fresh data this cycle
         self.meteo.clear_cache()
 
+        # Step 0: Check open positions (Auto-resolution & TP/SL)
+        self.resolve_open_trades()
+
         markets = self.scanner.scan()
         self.total_scanned += len(markets)
 
@@ -117,6 +120,63 @@ class WeatherStrategy:
         )
 
         return signals
+
+    # ── Position Management ──────────────────────────────────────
+
+    def resolve_open_trades(self) -> None:
+        """
+        Iterate over open paper trades.
+        Check if the market has resolved on Polymarket.
+        If not, check if current price hits Take Profit or Stop Loss.
+        """
+        open_trades = list(self.trader.positions.values())
+        if not open_trades:
+            return
+
+        logger.info("[WEATHER] Checking %d open positions for resolution or TP/SL...", len(open_trades))
+        
+        for pos in open_trades:
+            if pos.signal_source != "weather":
+                continue
+                
+            market = self.scanner.api.get_market(pos.condition_id)
+            if not market:
+                continue
+
+            # 1. Is it closed/resolved?
+            is_closed = market.get("closed", False) or not market.get("active", True)
+            if is_closed:
+                tokens = market.get("tokens", [])
+                win_token_id = None
+                for t in tokens:
+                    # Gamma API uses boolean or string true
+                    if t.get("winner") is True or str(t.get("winner")).lower() == "true":
+                        win_token_id = t.get("token_id")
+                        break
+                
+                if win_token_id:
+                    if win_token_id == pos.token_id:
+                        self.trader.close_trade(pos.trade_id, 1.0, "resolved_win")
+                    else:
+                        self.trader.close_trade(pos.trade_id, 0.0, "resolved_loss")
+                continue
+
+            # 2. Take Profit / Stop Loss
+            current_price = self.scanner.api.get_token_price(pos.token_id)
+            if current_price is None or current_price <= 0:
+                continue
+
+            # PnL logic depends on if we bought YES or NO
+            # Assuming we hold the token we bought:
+            # ROI = (current_price - entry_price) / entry_price
+            pnl_pct = (current_price - pos.entry_price) / pos.entry_price
+
+            if pnl_pct >= config.TAKE_PROFIT_PCT:
+                logger.info("[TAKE PROFIT] %s reached +%d%% ROI at $%.2f", pos.city, int(pnl_pct*100), current_price)
+                self.trader.close_trade(pos.trade_id, current_price, "take_profit")
+            elif pnl_pct <= config.STOP_LOSS_PCT:
+                logger.info("[STOP LOSS] %s dropped to %d%% ROI at $%.2f", pos.city, int(pnl_pct*100), current_price)
+                self.trader.close_trade(pos.trade_id, current_price, "stop_loss")
 
     # ── Market Evaluation ────────────────────────────────────────
 

@@ -89,6 +89,7 @@ class PaperTrader:
         self._trade_counter = 0
         self._lock = threading.Lock()
         self._init_csv()
+        self._load_open_trades()
 
     def _init_csv(self) -> None:
         """Ensure trades CSV has headers."""
@@ -98,6 +99,52 @@ class PaperTrader:
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=TRADES_COLUMNS)
                 writer.writeheader()
+
+    def _load_open_trades(self) -> None:
+        """Load active positions from open_trades.csv to survive restarts."""
+        csv_path = config.DATA_DIR / "open_trades.csv"
+        if not csv_path.exists():
+            return
+
+        try:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    trade_id = row.get("trade_id", "")
+                    if not trade_id:
+                        continue
+                    
+                    # Update counter so new trades don't overwrite
+                    try:
+                        counter = int(trade_id.split("_")[-1])
+                        self._trade_counter = max(self._trade_counter, counter)
+                    except (ValueError, IndexError):
+                        pass
+
+                    res_str = row.get("resolution_date", "")
+                    res_date = datetime.fromisoformat(res_str) if res_str else None
+
+                    pos = Position(
+                        trade_id=trade_id,
+                        market_question=row.get("market_question", ""),
+                        condition_id=row.get("condition_id", ""),
+                        token_id=row.get("token_id", ""),
+                        outcome=row.get("outcome", ""),
+                        side=row.get("side", ""),
+                        entry_price=float(row.get("entry_price", 0)),
+                        size_usd=float(row.get("size_usd", 0)),
+                        shares=float(row.get("shares", 0)),
+                        entry_time=datetime.fromisoformat(row.get("entry_time", "")),
+                        signal_source=row.get("signal_source", ""),
+                        city=row.get("city", ""),
+                        resolution_date=res_date,
+                    )
+                    self.positions[trade_id] = pos
+                    self.capital -= pos.size_usd
+
+            logger.info("[PAPER] Recovered %d open positions from disk.", len(self.positions))
+        except Exception as e:
+            logger.warning("Failed to load open trades: %s", e)
 
     # ── Trade Execution ──────────────────────────────────────────
 
