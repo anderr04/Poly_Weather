@@ -139,6 +139,11 @@ class WeatherStrategy:
             if pos.signal_source != "weather":
                 continue
                 
+            # Use condition_id if we have it (new trades), else use fallback
+            if not pos.condition_id:
+                logger.warning("[WARNING] Legacy open trade %s missing condition_id, skipping resolve", pos.trade_id)
+                continue
+
             market = self.scanner.api.get_market(pos.condition_id)
             if not market:
                 continue
@@ -161,10 +166,16 @@ class WeatherStrategy:
                         self.trader.close_trade(pos.trade_id, 0.0, "resolved_loss")
                 continue
 
-            # 2. Take Profit / Stop Loss
+            # 2. Update Max/Min Excursion Statistics
             current_price = self.scanner.api.get_token_price(pos.token_id)
             if current_price is None or current_price <= 0:
                 continue
+            
+            # Update MFE/MAE
+            if current_price > pos.max_price_reached:
+                pos.max_price_reached = current_price
+            if current_price < pos.min_price_reached or pos.min_price_reached == 0:
+                pos.min_price_reached = current_price
 
             # PnL logic depends on if we bought YES or NO
             # Assuming we hold the token we bought:
@@ -177,6 +188,9 @@ class WeatherStrategy:
             elif pnl_pct <= config.STOP_LOSS_PCT:
                 logger.info("[STOP LOSS] %s dropped to %d%% ROI at $%.2f", pos.city, int(pnl_pct*100), current_price)
                 self.trader.close_trade(pos.trade_id, current_price, "stop_loss")
+                
+        # Re-save the open_trades.csv dynamically with updated MFE/MAE prices
+        self.trader._save_open_trades()
 
     # ── Market Evaluation ────────────────────────────────────────
 
@@ -193,6 +207,13 @@ class WeatherStrategy:
         # Skip if price data not available
         if not market.tokens or market.yes_price <= 0:
             logger.debug("Skipping %s: no price data", market.question[:40])
+            return None
+
+        # Check for duplicate positions (Risk Anti-Overexposure)
+        # Using string matching just in case the legacy condition_id was empty
+        open_questions = {pos.market_question for pos in self.trader.positions.values()}
+        if market.question in open_questions:
+            logger.debug("Skipping %s: position already open (max 1 per event)", market.question[:40])
             return None
 
         # 1. Calculate real probability from Open-Meteo

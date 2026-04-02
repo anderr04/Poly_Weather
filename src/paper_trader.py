@@ -36,6 +36,8 @@ class Position:
     signal_source: str     # "weather" / "whale_copy"
     city: str              # city (weather) or whale label
     resolution_date: Optional[datetime] = None
+    max_price_reached: float = 0.0
+    min_price_reached: float = 0.0
 
 
 @dataclass
@@ -55,19 +57,23 @@ class ClosedTrade:
     exit_time: datetime
     signal_source: str
     exit_reason: str       # "resolved_win" / "resolved_loss" / "manual"
+    max_price_reached: float = 0.0
+    min_price_reached: float = 0.0
 
 
 TRADES_COLUMNS = [
-    "trade_id", "market_question", "outcome", "side",
-    "entry_price", "exit_price", "size_usd", "shares",
-    "pnl", "pnl_pct", "entry_time", "exit_time",
-    "signal_source", "city", "exit_reason",
+    "trade_id", "market_question", "condition_id", "token_id", 
+    "outcome", "side", "entry_price", "exit_price", "size_usd", 
+    "shares", "pnl", "pnl_pct", "entry_time", "exit_time",
+    "signal_source", "city", "exit_reason", 
+    "max_price_reached", "min_price_reached"
 ]
 
 OPEN_TRADES_COLUMNS = [
-    "trade_id", "market_question", "outcome", "side",
-    "entry_price", "size_usd", "shares", "entry_time",
+    "trade_id", "market_question", "condition_id", "token_id",
+    "outcome", "side", "entry_price", "size_usd", "shares", "entry_time",
     "signal_source", "city", "resolution_date",
+    "max_price_reached", "min_price_reached"
 ]
 
 
@@ -138,6 +144,8 @@ class PaperTrader:
                         signal_source=row.get("signal_source", ""),
                         city=row.get("city", ""),
                         resolution_date=res_date,
+                        max_price_reached=float(row.get("max_price_reached", row.get("entry_price", 0))),
+                        min_price_reached=float(row.get("min_price_reached", row.get("entry_price", 0))),
                     )
                     self.positions[trade_id] = pos
                     self.capital -= pos.size_usd
@@ -202,6 +210,8 @@ class PaperTrader:
                 signal_source=signal_source,
                 city=city,
                 resolution_date=resolution_date,
+                max_price_reached=effective_price,
+                min_price_reached=effective_price,
             )
 
             self.positions[trade_id] = pos
@@ -255,6 +265,8 @@ class PaperTrader:
                 exit_time=datetime.now(timezone.utc),
                 signal_source=pos.signal_source,
                 exit_reason=reason,
+                max_price_reached=pos.max_price_reached,
+                min_price_reached=pos.min_price_reached,
             )
 
             self.closed_trades.append(closed)
@@ -297,6 +309,10 @@ class PaperTrader:
                     "signal_source": trade.signal_source,
                     "city": city,
                     "exit_reason": trade.exit_reason,
+                    "condition_id": pos.condition_id if 'pos' in locals() else "",
+                    "token_id": pos.token_id if 'pos' in locals() else "",
+                    "max_price_reached": f"{trade.max_price_reached:.6f}",
+                    "min_price_reached": f"{trade.min_price_reached:.6f}",
                 })
         except Exception as e:
             logger.warning("Failed to write trades CSV: %s", e)
@@ -320,10 +336,14 @@ class PaperTrader:
                         "entry_time": pos.entry_time.isoformat(),
                         "signal_source": pos.signal_source,
                         "city": pos.city,
+                        "condition_id": pos.condition_id,
+                        "token_id": pos.token_id,
                         "resolution_date": (
                             pos.resolution_date.isoformat()
                             if pos.resolution_date else ""
                         ),
+                        "max_price_reached": f"{pos.max_price_reached:.6f}",
+                        "min_price_reached": f"{pos.min_price_reached:.6f}",
                     })
         except Exception as e:
             logger.warning("Failed to write open trades CSV: %s", e)
