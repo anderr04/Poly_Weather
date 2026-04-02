@@ -180,9 +180,9 @@ MAX_CAPITAL_PER_TRADE_PCT: float = float(
 )
 
 # Minimum market liquidity (USD) to consider trading
-# Adjusted for a $50 bankroll -> extremely small position sizes, so only $200 liquidity is needed
+# $1,000 avoids ghost towns with huge spreads while allowing emerging weather markets
 MIN_LIQUIDITY_USD: float = float(
-    os.getenv("MIN_LIQUIDITY_USD", "200")  # $200
+    os.getenv("MIN_LIQUIDITY_USD", "1000")  # $1,000
 )
 
 # Take Profit and Stop Loss (Paper Trading)
