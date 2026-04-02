@@ -133,17 +133,19 @@ Todos los signals se guardan en `data/shadow_trades.csv` con:
 | `ensemble_members_yes` | Miembros del ensemble a favor |
 | `historical_base_rate` | Tasa base en últimos 5 años |
 
-## 🔒 Safeguards
+## 🔒 Safeguards & Position Lifecycle
 
-| Control | Valor por defecto |
+| Control / Regla | Valor por defecto |
 |---------|-------------------|
-| Max capital por trade | 3% |
-| Liquidez mínima | $30,000 |
-| Tiempo mínimo a resolución | 24 horas |
-| Max pérdida diaria | 5% |
-| Max exposición total | 30% |
-| Max posiciones abiertas | 10 |
-| Kelly fraction | 0.5 (half-Kelly) |
+| Max capital por trade | 3% (evita sobreexposición) |
+| Liquidez mínima | $1,000 (evita grandes slippages) |
+| Take Profit automático | +50% ROI |
+| Stop Loss automático | -50% ROI |
+| Bloqueo Anti-Duplicados | Máx 1 compra por ciudad/evento |
+| Max pérdida diaria | 8% |
+| Max exposición total | 40% |
+| Auto-Resolución | Cobra silencioamente al cierre si es ganador |
+| Rastreo MFE / MAE | Registra el precio máx/mín histórico en CSV |
 
 ## 📁 Estructura del Proyecto
 
@@ -181,7 +183,7 @@ Poly_Weather/
 | `VALIDATOR_MODEL` | `phi3:mini` | Modelo Ollama |
 | `WEATHER_MISPRICING_THRESHOLD` | `0.15` | Umbral mispricing |
 | `MAX_CAPITAL_PER_TRADE_PCT` | `0.03` | Max % capital/trade |
-| `MIN_LIQUIDITY_USD` | `30000` | Liquidez mínima |
+| `MIN_LIQUIDITY_USD` | `1000` | Liquidez mínima |
 
 ## 📈 Métricas de Rendimiento
 
