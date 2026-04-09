@@ -133,15 +133,12 @@ class PolymarketAPI:
         _rate_limit()
         try:
             r = self.session.get(
-                f"{self.gamma_url}/markets",
-                params={"condition_id": condition_id},
+                f"{self.clob_url}/markets/{condition_id}",
                 timeout=10,
             )
             if r.status_code != 200:
                 return None
-            
-            data = r.json()
-            return data[0] if isinstance(data, list) and len(data) > 0 else None
+            return r.json()
         except Exception as e:
             logger.error("Market detail error: %s", e)
             return None
